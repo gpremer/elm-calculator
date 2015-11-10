@@ -33,9 +33,13 @@ type Action
     = Clear
     | Pop
     | Push
+    | Duplicate
+    | Swap
     | UpdateField String
     | Add
     | Subtract
+    | Multiply
+    | Divide
 
 
 update : Action -> Model -> Model
@@ -46,7 +50,6 @@ update action model =
     UpdateField str -> 
       { model | field <- str }
       
-
     Push -> 
       { model |
           stack <- pushTextToStack model.field model.stack ,
@@ -56,57 +59,106 @@ update action model =
     Pop ->
       { model | stack <- withDefault [] (List.tail model.stack) }
 
-    Add -> 
-      { model | 
-          stack <- op2 (+) model.field model.stack ,
-          field <- ""
-      }
+    Duplicate -> 
+      { model | stack <- withDefault model.stack (List.head model.stack |> Maybe.map (pushToStack model.stack)) } 
 
-    Subtract ->
-      { model | 
-          stack <- op2 (-) model.field model.stack ,
-          field <- ""
-      }
+    Swap ->
+      { model | stack <- swap model.stack }
+
+    Add -> op2 (+) model
+
+    Subtract -> op2 (-) model
+
+    Multiply -> op2 (*) model
+
+    Divide -> op2 (/) model
 
 pushTextToStack : String -> Stack -> Stack
 pushTextToStack text stack =
   case text |> String.toFloat of
     Ok number -> number :: stack
-    Err _ -> stack
+    Err _     -> stack
 
-op2 : (Float -> Float -> Float) -> String -> Stack -> Stack
-op2 f text stack =
-  case (String.toFloat text, stack) of
-    (Ok number, val :: rest) -> (f val number) :: rest
+pushToStack : Stack -> Float -> Stack
+pushToStack stack number =
+  number :: stack
 
-    (Err _, val1 :: val2 :: rest) -> (f val2 val1) :: rest
+swap : Stack -> Stack
+swap stack =
+  case stack of
+    val1 :: val2 :: rest -> val2 :: val1 :: rest
+    _                    -> stack
 
-    _ -> stack
+op2 : (Float -> Float -> Float) -> Model -> Model
+op2 f model =
+  let stack = model.stack
+      field = model.field
+      maybeNumber = String.toFloat field
+      newStack =
+        case (maybeNumber, stack) of
+          (Ok number, val :: rest)      -> (f val number) :: rest
+          (Err _, val1 :: val2 :: rest) -> (f val2 val1) :: rest
+          _                             -> stack
+      newField =
+        case maybeNumber of
+          Ok _  -> ""
+          Err _ -> field
+  in
+    { model | 
+      stack <- newStack
+    , field <- newField
+    }
 
 -- VIEW
 
 view : Address Action -> Model -> Html
 view address model =
   div [class "calculator"]
-    [ stackView model
-    , input [id "number_entry"
-            , name "number"
-            , value model.field
-            , type' "number"
-            , property "inputmode" (string "numeric")
-            , placeholder "number"
-            , autofocus True
-            , on "input" targetValue (Signal.message address << UpdateField)
-            , onEnter address Push] [ ]
-    , button [ onClick address Clear ] [ text "Clear" ]
-    , button [ onClick address Add ] [ text "+"] 
-    , button [ onClick address Subtract ] [ text "-"] 
-    , button [ onClick address Pop ] [ text "Del"]     
-    ]
+      [ stackView model
+      , controls address model
+      ]
 
 stackView : Model -> Html
 stackView model =
-  div [] (model.stack |> take 5 |> reverse |> List.map stackEntryView )
+  div [class "stack"] (model.stack |> take 5 |> reverse |> List.map stackEntryView )
+
+controls : Address Action -> Model -> Html
+controls address model =
+  div [ class "controls"]
+      [ numberEntry address model
+      , buttons address model
+      ]
+
+numberEntry : Address Action -> Model -> Html
+numberEntry address model =
+  div [ class "entry"]
+      [ input [ id "number_entry"
+              , name "number"
+              , value model.field
+              , type' "number"
+              , property "inputmode" (string "numeric")
+              , placeholder "number"
+              , autofocus True
+              , on "input" targetValue (Signal.message address << UpdateField)
+              , onEnter address Push] [ ]
+      ]
+
+buttons : Address Action -> Model -> Html
+buttons address model = 
+  div [ class "buttons"]
+      [ div [ id "buttons_row1"] 
+            [ button [ onClick address Clear ] [ text "Clr" ]
+            , button [ onClick address Pop ] [ text "Del"]
+            , button [ onClick address Duplicate ] [ text "Dup"]
+            , button [ onClick address Swap ] [ text "Swp"]
+            ]
+      , div [ id "buttons_row2"] 
+            [ button [ onClick address Add ] [ text "+"] 
+            , button [ onClick address Subtract ] [ text "-"] 
+            , button [ onClick address Multiply ] [ text "*"] 
+            , button [ onClick address Divide ] [ text "/"] 
+           ]
+      ]
 
 onEnter: Address a -> a -> Attribute
 onEnter address value =
@@ -120,4 +172,4 @@ is13 code =
 
 stackEntryView : Float -> Html
 stackEntryView a =
-  div [class "stack"] [a |> toString |> text]
+  div [ class "stack_number"] [a |> toString |> text]
