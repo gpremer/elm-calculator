@@ -40,6 +40,10 @@ type Action
     | Subtract
     | Multiply
     | Divide
+    | Sin
+    | Cos
+    | Tan
+    | Exp
 
 
 update : Action -> Model -> Model
@@ -73,6 +77,14 @@ update action model =
 
     Divide -> op2 (/) model
 
+    Sin -> op1 sin model
+
+    Cos -> op1 cos model
+
+    Tan -> op1 tan model
+
+    Exp -> op1 ( (^) e ) model
+
 pushTextToStack : String -> Stack -> Stack
 pushTextToStack text stack =
   case text |> String.toFloat of
@@ -99,6 +111,26 @@ op2 f model =
           (Ok number, val :: rest)      -> (f val number) :: rest
           (Err _, val1 :: val2 :: rest) -> (f val2 val1) :: rest
           _                             -> stack
+      newField =
+        case maybeNumber of
+          Ok _  -> ""
+          Err _ -> field
+  in
+    { model | 
+      stack <- newStack
+    , field <- newField
+    }
+
+op1 : (Float -> Float) -> Model -> Model
+op1 f model =
+  let stack = model.stack
+      field = model.field
+      maybeNumber = String.toFloat field
+      newStack =
+        case (maybeNumber, stack) of
+          (Ok number, rest)    -> (f number) :: rest
+          (Err _, val :: rest) -> (f val) :: rest
+          _                    -> stack
       newField =
         case maybeNumber of
           Ok _  -> ""
@@ -157,6 +189,12 @@ buttons address model =
             , button [ onClick address Subtract ] [ text "-"] 
             , button [ onClick address Multiply ] [ text "*"] 
             , button [ onClick address Divide ] [ text "/"] 
+           ]
+      , div [ id "buttons_row3"] 
+            [ button [ onClick address Sin ] [ text "sin"] 
+            , button [ onClick address Cos ] [ text "cos"] 
+            , button [ onClick address Tan ] [ text "tan"] 
+            , button [ onClick address Exp ] [ text "exp"] 
            ]
       ]
 
