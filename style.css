@@ -1,0 +1,21 @@
+.stack {
+    width: 80%;
+    min-height: 1em;
+    text-align: right;
+    border: 1px solid black;
+    margin-left: 4px;
+    margin-bottom: .5em;
+    padding: 2px;
+}
+#number_entry {
+    width:80%;
+    margin-left: 2px;
+    text-align: right;
+}
+.buttons div {
+    width:100%;
+}
+.buttons button {
+    width:20%;
+    box-sizing:border-box;
+}
